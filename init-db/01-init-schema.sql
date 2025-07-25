@@ -1,15 +1,16 @@
 -- Database: Tích Tích App
 -- Schema: Quản lý ví tiền cho trẻ em
 
--- Bảng 1: Thông tin khách hàng (chỉ có UserID và phone)
+-- Bảng 1: Thông tin khách hàng 
 CREATE TABLE customers (
     user_id SERIAL PRIMARY KEY,
     phone VARCHAR(15) UNIQUE NOT NULL,  -- Số điện thoại làm mật khẩu
+    name VARCHAR(100) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     is_active BOOLEAN DEFAULT TRUE
 );
 
--- Bảng 2: Thông tin con cái (bỏ gender, date_of_birth)
+-- Bảng 2: Thông tin con cái 
 CREATE TABLE children (
     child_id SERIAL PRIMARY KEY,
     parent_id INTEGER NOT NULL,
@@ -19,7 +20,7 @@ CREATE TABLE children (
     FOREIGN KEY (parent_id) REFERENCES customers(user_id) ON DELETE CASCADE
 );
 
--- Bảng 3: Wallet (Ví tiền) - giữ nguyên
+-- Bảng 3: Wallet (Ví tiền) 
 CREATE TABLE wallets (
     wallet_id SERIAL PRIMARY KEY,
     child_id INTEGER NOT NULL UNIQUE, -- Mỗi con chỉ có 1 wallet
@@ -27,7 +28,19 @@ CREATE TABLE wallets (
     savings DECIMAL(12,2) DEFAULT 0.00,
     charity DECIMAL(12,2) DEFAULT 0.00,
     spending DECIMAL(12,2) DEFAULT 0.00,
-    bought DECIMAL(12,2) DEFAULT 0.00,
+    study DECIMAL(12,2) DEFAULT 0.00,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (child_id) REFERENCES children(child_id) ON DELETE CASCADE
+);
+
+-- Bảng 4: Transactions (Giao dịch) 
+CREATE TABLE transactions (
+    transaction_id SERIAL PRIMARY KEY,
+    child_id INTEGER NOT NULL,
+    amount DECIMAL(12,2) NOT NULL,
+    type VARCHAR(20) NOT NULL, -- add, spend, transfer
+    description TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (child_id) REFERENCES children(child_id) ON DELETE CASCADE
@@ -56,7 +69,7 @@ CREATE TRIGGER trigger_create_wallet
 CREATE OR REPLACE FUNCTION update_total_wallet()
 RETURNS TRIGGER AS $$
 BEGIN
-    NEW.total = NEW.savings + NEW.charity + NEW.spending + NEW.bought;
+    NEW.total = NEW.savings + NEW.charity + NEW.spending + NEW.study;
     NEW.updated_at = CURRENT_TIMESTAMP;
     RETURN NEW;
 END;
@@ -68,4 +81,3 @@ CREATE TRIGGER trigger_update_total
     EXECUTE FUNCTION update_total_wallet();
 
 -- Schema đã sẵn sàng để sử dụng với SQLAlchemy
--- Dữ liệu sẽ được thêm thông qua Python/SQLAlchemy

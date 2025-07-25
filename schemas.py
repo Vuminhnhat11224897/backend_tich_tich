@@ -6,6 +6,7 @@ from typing import Optional, List
 # Customer Schemas
 class CustomerBase(BaseModel):
     phone: str
+    name : str
 
 class CustomerCreate(CustomerBase):
     pass
@@ -39,7 +40,7 @@ class WalletBase(BaseModel):
     savings: Optional[Decimal] = Decimal('0.00')
     charity: Optional[Decimal] = Decimal('0.00')
     spending: Optional[Decimal] = Decimal('0.00')
-    bought: Optional[Decimal] = Decimal('0.00')
+    study: Optional[Decimal] = Decimal('0.00')
 
 class WalletCreate(WalletBase):
     child_id: int

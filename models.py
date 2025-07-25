@@ -8,6 +8,7 @@ class Customer(Base):
     
     user_id = Column(Integer, primary_key=True, index=True)
     phone = Column(String(15), unique=True, nullable=False, index=True)
+    name = Column(String(100), nullable=False)
     created_at = Column(TIMESTAMP, server_default=text('CURRENT_TIMESTAMP'))
     is_active = Column(Boolean, default=True)
     
@@ -36,9 +37,24 @@ class Wallet(Base):
     savings = Column(DECIMAL(12, 2), default=0.00)
     charity = Column(DECIMAL(12, 2), default=0.00)
     spending = Column(DECIMAL(12, 2), default=0.00)
-    bought = Column(DECIMAL(12, 2), default=0.00)
+    study = Column(DECIMAL(12, 2), default=0.00)
     created_at = Column(TIMESTAMP, server_default=text('CURRENT_TIMESTAMP'))
     updated_at = Column(TIMESTAMP, server_default=text('CURRENT_TIMESTAMP'))
     
     # Relationship
     child = relationship("Child", back_populates="wallet")
+
+# Bảng Transaction để lưu các giao dịch
+class Transaction(Base):
+    __tablename__ = "transactions"
+
+    transaction_id = Column(Integer, primary_key=True, index=True)
+    child_id = Column(Integer, ForeignKey("children.child_id", ondelete="CASCADE"), nullable=False)
+    amount = Column(DECIMAL(12, 2), nullable=False)
+    type = Column(String(50), nullable=False)  # loại giao dịch: nạp, rút, chuyển, v.v.
+    description = Column(String(255))
+    created_at = Column(TIMESTAMP, server_default=text('CURRENT_TIMESTAMP'))
+    updated_at = Column(TIMESTAMP, server_default=text('CURRENT_TIMESTAMP'))
+
+    # Relationship
+    child = relationship("Child", backref="transactions")
