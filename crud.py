@@ -1,24 +1,44 @@
 from sqlalchemy.orm import Session
-from models import Customer, Child, Wallet
+from models import Customer, Child, Wallet, Transaction, CustomerSecurity
 from schemas import CustomerCreate, ChildCreate, WalletUpdate
 from decimal import Decimal
 
 # Customer CRUD operations
-def create_customer(db: Session, customer: CustomerCreate):
-    db_customer = Customer(
-        phone=customer.phone,
-        name=customer.name
-    )
+def create_customer(db: Session, name: str, phone: str, pin: str):
+    db_customer = Customer(name=name)
     db.add(db_customer)
     db.commit()
     db.refresh(db_customer)
+    db_security = CustomerSecurity(user_id=db_customer.user_id, phone=phone, pin=pin)
+    db.add(db_security)
+    db.commit()
+    db.refresh(db_security)
     return db_customer
 
 def get_customer_by_phone(db: Session, phone: str):
-    return db.query(Customer).filter(Customer.phone == phone).first()
+    security = db.query(CustomerSecurity).filter(CustomerSecurity.phone == phone).first()
+    if security:
+        return db.query(Customer).filter(Customer.user_id == security.user_id).first()
+    return None
 
 def get_customer_by_id(db: Session, user_id: int):
     return db.query(Customer).filter(Customer.user_id == user_id).first()
+
+# Pin CRUD operations
+def get_pin_by_user_id(db: Session, user_id: int):
+    security = db.query(CustomerSecurity).filter(CustomerSecurity.user_id == user_id).first()
+    if security:
+        return security.pin
+    return None
+
+def update_pin_by_user_id(db: Session, user_id: int, new_pin: str):
+    security = db.query(CustomerSecurity).filter(CustomerSecurity.user_id == user_id).first()
+    if security:
+        security.pin = new_pin
+        db.commit()
+        db.refresh(security)
+        return True
+    return False
 
 # Child CRUD operations
 def create_child(db: Session, child: ChildCreate):
@@ -54,67 +74,45 @@ def update_wallet(db: Session, child_id: int, wallet_update: WalletUpdate):
     return db_wallet
 
 # Thêm tiền vào ví
-def add_total_money(db: Session, child_id: int, total: Decimal):
+def add_money_to_wallet(db: Session, child_id: int, amount: int, field: str = "total"):
+    """
+    Cộng tiền vào một trường bất kỳ của ví (total, savings, charity, spending, study)
+    """
     db_wallet = db.query(Wallet).filter(Wallet.child_id == child_id).first()
-    if db_wallet:
-        db_wallet.total = total
+    if db_wallet and hasattr(db_wallet, field):
+        setattr(db_wallet, field, getattr(db_wallet, field) + amount)
         db.commit()
         db.refresh(db_wallet)
-    return db_wallet
+        return db_wallet
+    return None
 
-# Chia vào 4 loại ví, đồng bộ với endpoint mới
-def add_savings(db: Session, child_id: int, amount: Decimal):
-    db_wallet = db.query(Wallet).filter(Wallet.child_id == child_id).first()
-    if db_wallet:
-        db_wallet.savings += amount
-        db.commit()
-        db.refresh(db_wallet)
-    return db_wallet
+# Chi tiêu tiền từ ví
 
-def add_charity(db: Session, child_id: int, amount: Decimal):
-    db_wallet = db.query(Wallet).filter(Wallet.child_id == child_id).first()
-    if db_wallet:
-        db_wallet.charity += amount
-        db.commit()
-        db.refresh(db_wallet)
-    return db_wallet
-
-def add_spending(db: Session, child_id: int, amount: Decimal):
-    db_wallet = db.query(Wallet).filter(Wallet.child_id == child_id).first()
-    if db_wallet:
-        db_wallet.spending += amount
-        db.commit()
-        db.refresh(db_wallet)
-    return db_wallet
-
-def add_study(db: Session, child_id: int, amount: Decimal):
-    db_wallet = db.query(Wallet).filter(Wallet.child_id == child_id).first()
-    if db_wallet:
-        db_wallet.study += amount
-        db.commit()
-        db.refresh(db_wallet)
-    return db_wallet
-
-def spend_money(db: Session, child_id: int, amount: Decimal, wallet_type: str = 'spending'):
+def spend_money(db: Session, child_id: int, amount: int, wallet_type: str = 'spending'):
     """
     Chi tiêu trực tiếp từ ví được chỉ định
-    wallet_type: 'savings', 'charity', 'spending', study - ví nào sẽ bị trừ tiền
+    wallet_type: 'savings', 'charity', 'spending', 'study', 'total' - ví nào sẽ bị trừ tiền
     """
     db_wallet = db.query(Wallet).filter(Wallet.child_id == child_id).first()
-    if not db_wallet:
+    if not db_wallet or not hasattr(db_wallet, wallet_type):
         return None
-    
-    # Kiểm tra số dư và trừ tiền từ ví tương ứng
-    if wallet_type == 'savings' and db_wallet.savings >= amount:
-        db_wallet.savings -= amount
-    elif wallet_type == 'charity' and db_wallet.charity >= amount:
-        db_wallet.charity -= amount
-    elif wallet_type == 'spending' and db_wallet.spending >= amount:
-        db_wallet.spending -= amount
-    elif wallet_type == 'study' and db_wallet.study >= amount:
-        db_wallet.study -= amount
-    else:
-        return None  # Không đủ tiền hoặc wallet_type không hợp lệ
+
+    current_balance = getattr(db_wallet, wallet_type)
+    if current_balance >= amount:
+        setattr(db_wallet, wallet_type, current_balance - amount)
+        db.commit()
+        db.refresh(db_wallet)
+        return db_wallet
+    return None  # Không đủ tiền hoặc wallet_type không hợp lệ
+
+# Transaction CRUD
+def create_transaction(db: Session, child_id: int, amount: Decimal, type: str, description: str = ""):
+    transaction = Transaction(child_id=child_id, amount=amount, type=type, description=description)
+    db.add(transaction)
     db.commit()
-    db.refresh(db_wallet)
-    return db_wallet
+    db.refresh(transaction)
+    return transaction
+
+def get_transactions_by_child(db: Session, child_id: int):
+    return db.query(Transaction).filter(Transaction.child_id == child_id).all()
+

@@ -4,10 +4,16 @@
 -- Bảng 1: Thông tin khách hàng 
 CREATE TABLE customers (
     user_id SERIAL PRIMARY KEY,
-    phone VARCHAR(15) UNIQUE NOT NULL,  -- Số điện thoại làm mật khẩu
     name VARCHAR(100) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     is_active BOOLEAN DEFAULT TRUE
+);
+
+CREATE TABLE customer_security (
+    user_id INTEGER PRIMARY KEY,
+    phone VARCHAR(10) UNIQUE NOT NULL,
+    pin CHAR(6) NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES customers(user_id) ON DELETE CASCADE
 );
 
 -- Bảng 2: Thông tin con cái 
@@ -15,8 +21,8 @@ CREATE TABLE children (
     child_id SERIAL PRIMARY KEY,
     parent_id INTEGER NOT NULL,
     name VARCHAR(100) NOT NULL,
+    age INTEGER NOT NULL CHECK (age >= 0),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    is_active BOOLEAN DEFAULT TRUE,
     FOREIGN KEY (parent_id) REFERENCES customers(user_id) ON DELETE CASCADE
 );
 
@@ -24,11 +30,11 @@ CREATE TABLE children (
 CREATE TABLE wallets (
     wallet_id SERIAL PRIMARY KEY,
     child_id INTEGER NOT NULL UNIQUE, -- Mỗi con chỉ có 1 wallet
-    total DECIMAL(12,2) DEFAULT 0.00,
-    savings DECIMAL(12,2) DEFAULT 0.00,
-    charity DECIMAL(12,2) DEFAULT 0.00,
-    spending DECIMAL(12,2) DEFAULT 0.00,
-    study DECIMAL(12,2) DEFAULT 0.00,
+    total INTEGER DEFAULT 0,
+    savings INTEGER DEFAULT 0,
+    charity INTEGER DEFAULT 0,
+    buywhatyoulike INTEGER DEFAULT 0,
+    study INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (child_id) REFERENCES children(child_id) ON DELETE CASCADE
@@ -38,9 +44,21 @@ CREATE TABLE wallets (
 CREATE TABLE transactions (
     transaction_id SERIAL PRIMARY KEY,
     child_id INTEGER NOT NULL,
-    amount DECIMAL(12,2) NOT NULL,
-    type VARCHAR(20) NOT NULL, -- add, spend, transfer
-    description TEXT,
+    amount INTEGER NOT NULL,
+    type VARCHAR(20) NOT NULL, -- split, spend
+    wallet_type TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (child_id) REFERENCES children(child_id) ON DELETE CASCADE
+);
+
+-- Bảng 5 : Misssion
+CREATE TABLE missions (
+    mission_id SERIAL PRIMARY KEY,
+    child_id INTEGER NOT NULL,
+    purpose VARCHAR(255) NOT NULL,
+    wallet_type TEXT,
+    is_completed BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (child_id) REFERENCES children(child_id) ON DELETE CASCADE
@@ -64,20 +82,5 @@ CREATE TRIGGER trigger_create_wallet
     AFTER INSERT ON children
     FOR EACH ROW
     EXECUTE FUNCTION create_wallet_for_child();
-
--- Trigger cập nhật total khi thay đổi ví
-CREATE OR REPLACE FUNCTION update_total_wallet()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.total = NEW.savings + NEW.charity + NEW.spending + NEW.study;
-    NEW.updated_at = CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trigger_update_total
-    BEFORE UPDATE ON wallets
-    FOR EACH ROW
-    EXECUTE FUNCTION update_total_wallet();
 
 -- Schema đã sẵn sàng để sử dụng với SQLAlchemy
