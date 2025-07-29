@@ -1,73 +1,130 @@
--- Database: Tích Tích App
--- Schema: Quản lý ví tiền cho trẻ em
-
--- Bảng 1: Thông tin khách hàng 
+-- 1. Customer
 CREATE TABLE customers (
-    user_id SERIAL PRIMARY KEY,
+    parent_id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    is_active BOOLEAN DEFAULT TRUE
+    active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 );
 
-CREATE TABLE customer_security (
-    user_id INTEGER PRIMARY KEY,
+-- 2. Security
+CREATE TABLE security (
+    parent_id SERIAL PRIMARY KEY,
     phone VARCHAR(10) UNIQUE NOT NULL,
-    pin CHAR(6) NOT NULL,
-    FOREIGN KEY (user_id) REFERENCES customers(user_id) ON DELETE CASCADE
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (parent_id) REFERENCES customers(parent_id) ON DELETE CASCADE
 );
 
--- Bảng 2: Thông tin con cái 
+-- 3. Child
 CREATE TABLE children (
     child_id SERIAL PRIMARY KEY,
     parent_id INTEGER NOT NULL,
     name VARCHAR(100) NOT NULL,
     age INTEGER NOT NULL CHECK (age >= 0),
+    coin INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (parent_id) REFERENCES customers(user_id) ON DELETE CASCADE
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (parent_id) REFERENCES customers(parent_id) ON DELETE CASCADE
 );
 
--- Bảng 3: Wallet (Ví tiền) 
+-- 4. Character Own
+CREATE TABLE character_own (
+    character_id SERIAL PRIMARY KEY,
+    child_id INTEGER UNIQUE NOT NULL,
+    level INTEGER DEFAULT 1,
+    coin_to_upgrade INTEGER DEFAULT 0,
+    image_corresponding_level TEXT,
+    effect_corresponding_level TEXT,
+    FOREIGN KEY (child_id) REFERENCES children(child_id) ON DELETE CASCADE
+);
+
+-- 5. Wallet
 CREATE TABLE wallets (
     wallet_id SERIAL PRIMARY KEY,
-    child_id INTEGER NOT NULL UNIQUE, -- Mỗi con chỉ có 1 wallet
+    child_id INTEGER UNIQUE NOT NULL,
     total INTEGER DEFAULT 0,
-    savings INTEGER DEFAULT 0,
     charity INTEGER DEFAULT 0,
-    buywhatyoulike INTEGER DEFAULT 0,
+    savings INTEGER DEFAULT 0,
     study INTEGER DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    joy INTEGER DEFAULT 0,
     FOREIGN KEY (child_id) REFERENCES children(child_id) ON DELETE CASCADE
 );
 
--- Bảng 4: Transactions (Giao dịch) 
+-- 6. Transaction
 CREATE TABLE transactions (
     transaction_id SERIAL PRIMARY KEY,
-    child_id INTEGER NOT NULL,
+    wallet_id INTEGER NOT NULL,
     amount INTEGER NOT NULL,
-    type VARCHAR(20) NOT NULL, -- split, spend
-    wallet_type TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (child_id) REFERENCES children(child_id) ON DELETE CASCADE
+    type VARCHAR(20) NOT NULL, -- split, spending
+    wallet_type TEXT, -- charity, study, saving, buywhatyoulike
+    purpose VARCHAR(255),
+    time_create TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (wallet_id) REFERENCES wallets(wallet_id) ON DELETE CASCADE
 );
 
--- Bảng 5 : Misssion
+-- 7. Mission
 CREATE TABLE missions (
     mission_id SERIAL PRIMARY KEY,
-    child_id INTEGER NOT NULL,
     purpose VARCHAR(255) NOT NULL,
     wallet_type TEXT,
-    is_completed BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    amount INTEGER,
+    child_id INTEGER NOT NULL,
+    mission_progress_id INTEGER,
     FOREIGN KEY (child_id) REFERENCES children(child_id) ON DELETE CASCADE
+    -- mission_progress_id sẽ được liên kết ở bảng mission_progress
 );
 
--- Tạo indexes để tối ưu hiệu suất
+-- 8. Mission Progress
+CREATE TABLE mission_progress (
+    mission_progress_id SERIAL PRIMARY KEY,
+    mission_id INTEGER NOT NULL UNIQUE,
+    time_create TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    time_end TIMESTAMP,
+    status VARCHAR(50),
+    FOREIGN KEY (mission_id) REFERENCES missions(mission_id) ON DELETE CASCADE
+);
+
+-- 9. Subscription
+CREATE TABLE subscriptions (
+    parent_id SERIAL PRIMARY KEY,
+    time_start TIMESTAMP,
+    time_end TIMESTAMP,
+    is_active BOOLEAN DEFAULT TRUE,
+    type VARCHAR(50),
+    time_to_use INTEGER,
+    FOREIGN KEY (parent_id) REFERENCES customers(parent_id) ON DELETE CASCADE
+);
+
+-- 10. ActionLogs
+CREATE TABLE action_logs (
+    action_id SERIAL PRIMARY KEY,
+    time_begin TIMESTAMP,
+    time_end TIMESTAMP,
+    action_type VARCHAR(50),
+    action_detail TEXT,
+    child_id INTEGER,
+    transaction_id INTEGER,
+    FOREIGN KEY (child_id) REFERENCES children(child_id) ON DELETE CASCADE,
+    FOREIGN KEY (transaction_id) REFERENCES transactions(transaction_id) ON DELETE SET NULL
+);
+
+-- 11. Game (bảng phần thưởng)
+CREATE TABLE game_rewards (
+    reward_id SERIAL PRIMARY KEY,
+    reward_type VARCHAR(50), -- nhap, chi, mission_reward
+    value INTEGER NOT NULL,
+    description TEXT
+);
+
 CREATE INDEX idx_children_parent_id ON children(parent_id);
+CREATE INDEX idx_character_own_child_id ON character_own(child_id);
 CREATE INDEX idx_wallets_child_id ON wallets(child_id);
-CREATE INDEX idx_customers_phone ON customers(phone);
+CREATE INDEX idx_transactions_wallet_id ON transactions(wallet_id);
+CREATE INDEX idx_missions_child_id ON missions(child_id);
+CREATE INDEX idx_mission_progress_mission_id ON mission_progress(mission_id);
+CREATE INDEX idx_action_logs_child_id ON action_logs(child_id);
+CREATE INDEX idx_action_logs_transaction_id ON action_logs(transaction_id);
 
 -- Trigger tự động tạo wallet khi thêm con cái
 CREATE OR REPLACE FUNCTION create_wallet_for_child()

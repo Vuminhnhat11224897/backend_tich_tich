@@ -21,3 +21,4 @@ def create_child(child: schemas.ChildCreate, db: Session = Depends(get_db)):
 def read_children_by_parent(parent_id: int, db: Session = Depends(get_db)):
     children = crud.get_children_by_parent(db, parent_id=parent_id)
     return children
+

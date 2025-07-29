@@ -5,7 +5,6 @@ from typing import Optional, List
 # CustomerSecurity Schemas
 class CustomerSecurityBase(BaseModel):
     phone: str
-    pin: str
 
 class CustomerSecurityCreate(CustomerSecurityBase):
     pass
@@ -22,12 +21,10 @@ class CustomerBase(BaseModel):
 
 class CustomerCreate(CustomerBase):
     phone: str
-    pin: str
-
+    
 class CustomerResponse(CustomerBase):
     user_id: int
     created_at: datetime
-    is_active: bool
     security_info: Optional[CustomerSecurityResponse] = None
 
     class Config:
@@ -37,23 +34,27 @@ class CustomerResponse(CustomerBase):
 class ChildBase(BaseModel):
     name: str
     parent_id: int
+    age : int
 
 class ChildCreate(ChildBase):
     pass
 
 class ChildResponse(ChildBase):
     child_id: int
+    coin : int
     created_at: datetime
     is_active: bool
+
 
     class Config:
         from_attributes = True
 
 # Wallet Schemas
 class WalletBase(BaseModel):
+    total : Optional[int] = 0
     savings: Optional[int] = 0
     charity: Optional[int] = 0
-    spending: Optional[int] = 0
+    joy: Optional[int] = 0
     study: Optional[int] = 0
 
 class WalletCreate(WalletBase):
@@ -66,6 +67,10 @@ class WalletResponse(WalletBase):
     wallet_id: int
     child_id: int
     total: int
+    savings: int
+    charity: int
+    joy: int
+    study: int
     created_at: datetime
     updated_at: datetime
 

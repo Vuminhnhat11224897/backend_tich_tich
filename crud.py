@@ -9,7 +9,7 @@ def create_customer(db: Session, name: str, phone: str, pin: str):
     db.add(db_customer)
     db.commit()
     db.refresh(db_customer)
-    db_security = CustomerSecurity(user_id=db_customer.user_id, phone=phone, pin=pin)
+    db_security = CustomerSecurity(user_id=db_customer.user_id, phone=phone)
     db.add(db_security)
     db.commit()
     db.refresh(db_security)
